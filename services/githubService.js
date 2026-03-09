@@ -1,6 +1,6 @@
 const axios=require('axios')
 const { fileLoader } = require('ejs')
-
+const pool=require("../db")
 const username=process.env.GITHUB_USERNAME
 
 const getRepos=(req,res)=>{} // this is a controller type function
@@ -43,7 +43,7 @@ const getCommits=async(owner,repo)=>{
                 message: commit.commit.message,
                 author: commit.commit.author.name,
                 date: commit.commit.author.date,
-                // sha: commit.sha
+                sha: commit.sha
             }
         })
         return filteredCommits
@@ -89,4 +89,29 @@ const AllCommits = async (username) => {
     last7DaysCommits.sort((a, b) => new Date(b.date) - new Date(a.date))
     return last7DaysCommits
 }
-module.exports={getRepositories,getCommits,getRepoName,AllCommits}
+
+async function saveToDb(commits){
+    for(const commit of commits){
+        await pool.query(
+            `INSERT INTO commits(repo,message,author,date,sha)
+            VALUES($1 ,$2 ,$3 ,$4, $5)
+            ON CONFLICT (sha) DO NOTHING`,
+            [
+                commit.repo,commit.message,commit.author,commit.date,commit.sha
+            ]
+        )
+    }
+} 
+
+async function getLatestCommitsFromDB(limit = 10) {
+  const result = await pool.query(
+    `SELECT repo, message, author, date
+     FROM commits
+     ORDER BY date DESC
+     LIMIT $1`,
+    [limit]
+  );
+
+  return result.rows;
+}
+module.exports={getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}

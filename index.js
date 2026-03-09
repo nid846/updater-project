@@ -4,15 +4,23 @@ require('dotenv').config()
 const express = require('express')
 const app = express()
 
+const {connectRedis}=require('./utils/redisClient')
+
 const portfolioRoutes = require('./routes/projRoutes')
 const errorHandler=require('./utils/errorHandler')
 
 const port = process.env.port
+app.set('view engine', 'ejs');
+app.set('views', './views');
 
 app.use('/', portfolioRoutes)
 app.use(errorHandler)
 
-app.listen(port,()=>{
-    console.log(`server running on port ${port}`)
-})
+async function startServer(){
+    await connectRedis()
+    app.listen(port,()=>{
+        console.log(`server running on port ${port}`)
+    })
+}
+startServer()
 

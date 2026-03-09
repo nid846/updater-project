@@ -1,0 +1,19 @@
+<h1>Recent GitHub Activity</h1>
+
+<% if (commits && commits.length > 0) { %>
+
+<ul>
+    <% commits.slice(0,5).forEach(commit => { %>
+        <li>
+            <strong><%= commit.message %></strong>
+            <br>
+            <small><%= new Date(commit.date).toLocaleString() %></small>
+        </li>
+    <% }) %>
+</ul>
+
+<% } else { %>
+
+<p>No recent activity found.</p>
+
+<% } %>

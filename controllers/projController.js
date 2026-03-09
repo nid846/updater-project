@@ -1,23 +1,12 @@
-const {getRepositories,getCommits,getRepoName,AllCommits}=require("../services/githubService")
-const getHealth=(req,res)=>{
-    try{
-        res.json({status:"thriving"})
-    } catch(err){
-        res.status(500).json({message:"error..try again"})
-    }
-}
-
-const getProfile=(req,res)=>{
-    try{
-            res.json({
-            name: "Nidhi",
-            role: "Developer",
-            projects: 3
-        })
-    } catch(err){
-        res.status(500).json({message:"invalid..try again"})
-    }
-}
+const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}=require("../services/githubService")
+const {getCache,setCache}=require('../utils/redisClient')
+// const getHealth=(req,res)=>{
+//     try{
+//         res.json({status:"thriving"})
+//     } catch(err){
+//         res.status(500).json({message:"error..try again"})
+//     }
+// }
 
 const getGithubRepos=async(req, res, next)=>{
     try{
@@ -54,4 +43,36 @@ const getAllCommits=async(req,res,next)=>{
         console.log(error.message)
     }
 }
-module.exports={getHealth,getProfile,getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits}
+
+const getProfilePage = async (req, res) => {
+  try {
+
+    const username = req.params.username
+    const cachekey = `commits:${username}`
+
+    // 1️⃣ Redis
+    let commits = await getCache(cachekey)
+
+    if (commits) {
+      console.log("Serving from Redis")
+      return res.render("profile", { commits })
+    }
+
+    // 2️⃣ GitHub
+    commits = await AllCommits(username)
+
+    console.log("Serving from GitHub")
+
+    if (commits && commits.length > 0) {
+      await saveToDb(commits)
+      await setCache(cachekey, commits)
+    }
+
+    res.render("profile", { commits })
+
+  } catch (error) {
+    console.log(error.message)
+    res.render("profile", { commits: [] })
+  }
+}
+module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage}
