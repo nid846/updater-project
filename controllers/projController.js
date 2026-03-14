@@ -75,4 +75,26 @@ const getProfilePage = async (req, res) => {
     res.render("profile", { commits: [] })
   }
 }
-module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage}
+
+const handleGithubWebhook=async (req,res)=>{
+    try{
+        const event=req.headers["x-github-event"]
+        console.log("event:",event);
+        if(event=='push'){
+            const payload=req.body
+            const repoName=payload.repository.name
+            const commits=payload.commits
+
+            console.log("Repo:", repoName)
+            console.log("Commits received:", commits.length)
+        }
+        if (!commits || commits.length === 0) {
+            return res.status(200).send("No commits to process")
+        }
+        res.status(200).send("Webhook Received")
+    }catch(err){
+        console.log(err.message)
+        res.status(500).send("Webhook error")
+    }
+}
+module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}
