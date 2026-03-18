@@ -4,8 +4,14 @@ require('dotenv').config()
 const express = require('express')
 const app = express()
 
-app.use('/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json())
+// app.use('/webhook', express.raw({ type: 'application/json' }));
+// app.use(express.json())
+app.use((req, res, next) => {
+  if (req.originalUrl === '/github/webhook') {
+    return next(); // skip json parser
+  }
+  express.json()(req, res, next);
+});
 
 const {connectRedis}=require('./utils/redisClient')
 
