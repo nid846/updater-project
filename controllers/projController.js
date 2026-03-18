@@ -76,26 +76,54 @@ const getProfilePage = async (req, res) => {
   }
 }
 
-const handleGithubWebhook=async (req,res)=>{
-    try{
-        const event=req.headers["x-github-event"]
-        let commits;
-        console.log("event:",event);
-        if(event=='push'){
-            const payload=req.body
-            const repoName=payload.repository.name
-            commits=payload.commits
+const handleGithubWebhook = async (req, res) => {
+  console.log("WEBHOOK HIT")
 
-            console.log("Repo:", repoName)
-            console.log("Commits received:", commits.length)
-        }
-        if (!commits || commits.length === 0) {
-            return res.status(200).send("No commits to process")
-        }
-        res.status(200).send("Webhook Received")
-    }catch(err){
-        console.log(err.message)
-        res.status(500).send("Webhook error")
+  try {
+    const event = req.headers["x-github-event"]
+
+    if (event === "push") {
+      const payload = req.body
+
+      const repoName = payload.repository?.name
+      const commits = payload.commits || []
+
+      console.log("Repo:", repoName)
+      console.log("Commits received:", commits.length)
+
+      if (commits.length === 0) {
+        return res.status(200).send("No commits")
+      }
+
+      // 🔥 STEP 1: Transform data
+      const formattedCommits = commits.map(c => ({
+        repo: repoName,
+        message: c.message,
+        author: c.author.name,
+        date: c.timestamp
+      }))
+
+      console.log("Formatted:", formattedCommits)
+
+      // 🔥 STEP 2: Save to DB (you already have this)
+      await saveToDb(formattedCommits)
+
+      // 🔥 STEP 3: Clear Redis cache
+      const username = payload.repository.owner.name || payload.repository.owner.login
+      const cacheKey = `commits:${username}`
+
+      const { setCache } = require('../utils/redisClient')
+      await setCache(cacheKey, null) // simple way to invalidate
+
+      console.log("Cache cleared")
+
     }
+
+    res.status(200).send("Webhook processed")
+
+  } catch (err) {
+    console.log("ERROR:", err.message)
+    res.status(500).send("Webhook error")
+  }
 }
 module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}
