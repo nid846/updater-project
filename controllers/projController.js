@@ -118,7 +118,7 @@ const handleGithubWebhook = async (req, res) => {
     const event = req.headers["x-github-event"]
 
     if (event === "push") {
-      const payload = req.body
+      const payload = JSON.parse(req.body.toString()); 
 
       const repoName = payload.repository?.name
       const commits = payload.commits || []
