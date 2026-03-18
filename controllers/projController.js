@@ -76,6 +76,38 @@ const getProfilePage = async (req, res) => {
   }
 }
 
+const crypto = require('crypto');
+const verifySignature = (req) => {
+  try {
+    // 1. Get GitHub signature from headers
+    const signature = req.headers['x-hub-signature-256'];
+
+    if (!signature) {
+      console.log("No signature found in headers");
+      return false;
+    }
+
+    // 2. Create HMAC using your secret
+    const hmac = crypto.createHmac(
+      'sha256',
+      process.env.WEBHOOK_SECRET
+    );
+
+    // 3. Generate digest from RAW body
+    const digest = 'sha256=' + hmac.update(req.body).digest('hex');
+
+    // 4. Compare safely (prevents timing attacks)
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(digest)
+    )
+    return isValid;
+  } catch (error) {
+    console.error("Signature verification error:", error.message);
+    return false;
+  }
+}
+
 const handleGithubWebhook = async (req, res) => {
     if (!verifySignature(req)) {
         return res.status(401).send("Invalid signature");
