@@ -3,6 +3,8 @@ require('dotenv').config()
 
 const express = require('express')
 const app = express()
+
+app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json())
 
 const {connectRedis}=require('./utils/redisClient')
@@ -14,7 +16,6 @@ const port = process.env.port
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
-app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use('/', portfolioRoutes)
 app.use(errorHandler)
 
