@@ -5,7 +5,7 @@ const {getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfileP
 // router.get('/health',getHealth)
 // router.get('/profile',getProfile)
 
-router.get('/repos/:username', getGithubRepos)
+router.get('/repos/:username',    getGithubRepos)
 
 router.get('/commits/:owner/:repo',getGithubCommits)
 
