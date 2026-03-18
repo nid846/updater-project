@@ -110,10 +110,11 @@ const verifySignature = (req) => {
 
 const handleGithubWebhook = async (req, res) => {
     if (!verifySignature(req)) {
+        console.log("WEBHOOK SECRET:", process.env.WEBHOOK_SECRET);
         return res.status(401).send("Invalid signature");
     }
   console.log("WEBHOOK HIT")
-console.log("WEBHOOK SECRET:", process.env.WEBHOOK_SECRET);
+
   try {
     const event = req.headers["x-github-event"]
 
