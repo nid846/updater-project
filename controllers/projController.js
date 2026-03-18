@@ -58,15 +58,24 @@ const getProfilePage = async (req, res) => {
       return res.render("profile", { commits })
     }
 
-    // 2️⃣ GitHub
-    commits = await AllCommits(username)
+    // 2️⃣ DB instead of GitHub
+    commits = await getLatestCommitsFromDB()
 
-    console.log("Serving from GitHub")
+    console.log("Serving from DB")
 
     if (commits && commits.length > 0) {
-      await saveToDb(commits)
       await setCache(cachekey, commits)
     }
+
+    // GitHub
+    // commits = await AllCommits(username)
+
+    // console.log("Serving from GitHub")
+
+    // if (commits && commits.length > 0) {
+    //   await saveToDb(commits)
+    //   await setCache(cachekey, commits)
+    // }
 
     res.render("profile", { commits })
 
