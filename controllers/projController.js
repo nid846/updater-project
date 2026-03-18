@@ -79,11 +79,12 @@ const getProfilePage = async (req, res) => {
 const handleGithubWebhook=async (req,res)=>{
     try{
         const event=req.headers["x-github-event"]
+        let commits;
         console.log("event:",event);
         if(event=='push'){
             const payload=req.body
             const repoName=payload.repository.name
-            const commits=payload.commits
+            commits=payload.commits
 
             console.log("Repo:", repoName)
             console.log("Commits received:", commits.length)
