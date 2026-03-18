@@ -14,7 +14,7 @@ const port = process.env.port
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
-app.use('/', portfolioRoutes)
+app.use('/',     portfolioRoutes)
 app.use(errorHandler)
 
 async function startServer(){
