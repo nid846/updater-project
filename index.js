@@ -6,12 +6,11 @@ const app = express()
 
 // app.use('/webhook', express.raw({ type: 'application/json' }));
 // app.use(express.json())
-app.use((req, res, next) => {
-  if (req.originalUrl === '/github/webhook') {
-    return next(); // skip json parser
-  }
-  express.json()(req, res, next);
-});
+// 1. Apply RAW body ONLY to webhook
+app.use('/github/webhook', express.raw({ type: 'application/json' }));
+
+// 2. Apply JSON to everything else
+app.use(express.json());
 
 const {connectRedis}=require('./utils/redisClient')
 
