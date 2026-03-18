@@ -77,6 +77,9 @@ const getProfilePage = async (req, res) => {
 }
 
 const handleGithubWebhook = async (req, res) => {
+    if (!verifySignature(req)) {
+        return res.status(401).send("Invalid signature");
+    }
   console.log("WEBHOOK HIT")
 
   try {
@@ -95,7 +98,6 @@ const handleGithubWebhook = async (req, res) => {
         return res.status(200).send("No commits")
       }
 
-      // 🔥 STEP 1: Transform data
       const formattedCommits = commits.map(c => ({
         repo: repoName,
         message: c.message,
@@ -105,10 +107,8 @@ const handleGithubWebhook = async (req, res) => {
 
       console.log("Formatted:", formattedCommits)
 
-      // 🔥 STEP 2: Save to DB (you already have this)
       await saveToDb(formattedCommits)
 
-      // 🔥 STEP 3: Clear Redis cache
       const username = payload.repository.owner.name || payload.repository.owner.login
       const cacheKey = `commits:${username}`
 
