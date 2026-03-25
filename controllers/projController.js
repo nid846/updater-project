@@ -76,7 +76,7 @@ const getProfilePage = async (req, res) => {
     //   await saveToDb(commits)
     //   await setCache(cachekey, commits)
     // }
-
+    console.log("FINAL DATA SENT:", commits);
     res.render("profile", { commits })
 
   } catch (error) {

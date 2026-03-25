@@ -30,4 +30,4 @@ async function setCache(key,value){
         EX: 300
     })
 }
-module.exports={connectRedis,getCache,setCache}
+module.exports={connectRedis,getCache,setCache,redisClient}

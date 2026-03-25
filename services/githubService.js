@@ -92,14 +92,16 @@ const AllCommits = async (username) => {
 
 async function saveToDb(commits){
     for(const commit of commits){
-        await pool.query(
-            `INSERT INTO commits(repo,message,author,date,sha)
-            VALUES($1 ,$2 ,$3 ,$4, $5)
-            ON CONFLICT (sha) DO NOTHING`,
-            [
-                commit.repo,commit.message,commit.author,commit.date,commit.sha
-            ]
-        )
+        if(commit.message && commit.date && commit.repo){
+            await pool.query(
+                `INSERT INTO commits(repo,message,author,date,sha)
+                VALUES($1 ,$2 ,$3 ,$4, $5)
+                ON CONFLICT (sha) DO NOTHING`,
+                [
+                    commit.repo,commit.message,commit.author,commit.date,commit.sha
+                ]
+            )
+        }
     }
 } 
 

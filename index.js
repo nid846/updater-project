@@ -4,6 +4,9 @@ require('dotenv').config()
 const express = require('express')
 const app = express()
 
+const { startCommitCron } = require("./cron/commitCron");
+startCommitCron();
+
 // app.use('/webhook', express.raw({ type: 'application/json' }));
 // app.use(express.json())
 // 1. Apply RAW body ONLY to webhook
