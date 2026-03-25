@@ -5,7 +5,7 @@ const {redisClient} = require("../utils/redisClient"); // adjust if different
 const username = process.env.GITHUB_USERNAME;
 
 const startCommitCron = () => {
-  cron.schedule("* * * * *", async () => {
+  cron.schedule("0 */24 * * *", async () => {
     console.log("Running commit cron job...");
 
     try {
@@ -17,7 +17,7 @@ const startCommitCron = () => {
         );
 
         if (validCommits.length > 0) {
-        await saveToDb(username, validCommits);
+        await saveToDb(validCommits);
 
         await redisClient.del(`commits:${username}`);
 

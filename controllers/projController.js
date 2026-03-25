@@ -1,5 +1,6 @@
 const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
+const { redisClient } = require('../utils/redisClient')
 // const getHealth=(req,res)=>{
 //     try{
 //         res.json({status:"thriving"})
@@ -144,7 +145,8 @@ const handleGithubWebhook = async (req, res) => {
         repo: repoName,
         message: c.message,
         author: c.author.name,
-        date: c.timestamp
+        date: c.timestamp,
+        sha: c.id 
       }))
 
       console.log("Formatted:", formattedCommits)
@@ -155,7 +157,7 @@ const handleGithubWebhook = async (req, res) => {
       const cacheKey = `commits:${username}`
 
       const { setCache } = require('../utils/redisClient')
-      await setCache(cacheKey, null) // simple way to invalidate
+      await redisClient.del(cacheKey)
 
       console.log("Cache cleared")
 
