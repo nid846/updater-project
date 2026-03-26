@@ -2,6 +2,8 @@ const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommi
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
 const { generateSummary } = require("../services/aiService");
+const pool=require('../db')
+
 // const getHealth=(req,res)=>{
 //     try{
 //         res.json({status:"thriving"})
