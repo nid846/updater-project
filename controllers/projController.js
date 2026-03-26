@@ -132,55 +132,64 @@ const verifySignature = (req) => {
 
 const handleGithubWebhook = async (req, res) => {
     if (!verifySignature(req)) {
-        // console.log("WEBHOOK SECRET:", process.env.WEBHOOK_SECRET); (debug)
         return res.status(401).send("Invalid signature");
     }
-  console.log("WEBHOOK HIT")
+    console.log("WEBHOOK HIT");
 
-  try {
-    const event = req.headers["x-github-event"]
+    try {
+        const event = req.headers["x-github-event"];
 
-    if (event === "push") {
-      const payload = JSON.parse(req.body.toString()); 
+        if (event === "push") {
+            const payload = JSON.parse(req.body.toString()); 
 
-      const repoName = payload.repository?.name
-      const commits = payload.commits || []
+            const repoName = payload.repository?.name;
+            const commits = payload.commits || [];
 
-      console.log("Repo:", repoName)
-      console.log("Commits received:", commits.length)
+            console.log("Repo:", repoName);
+            console.log("Commits received:", commits.length);
 
-      if (commits.length === 0) {
-        return res.status(200).send("No commits")
-      }
+            if (commits.length === 0) {
+                return res.status(200).send("No commits");
+            }
 
-      const formattedCommits = commits.map(c => ({
-        repo: repoName,
-        message: c.message,
-        author: c.author.name,
-        date: c.timestamp,
-        sha: c.id 
-      }))
+            const formattedCommits = commits.map(c => ({
+                repo: repoName,
+                message: c.message,
+                author: c.author.name,
+                date: c.timestamp,
+                sha: c.id 
+            }));
 
-      console.log("Formatted:", formattedCommits)
+            console.log("Formatted:", formattedCommits);
 
-      await saveToDb(formattedCommits)
+            // 1️⃣ Save commits to DB
+            await saveToDb(formattedCommits);
 
-      const username = payload.repository.owner.name || payload.repository.owner.login
-      const cacheKey = `commits:${username}`
+            const username = payload.repository.owner.name || payload.repository.owner.login;
+            const commitsCacheKey = `commits:${username}`;
+            const summaryCacheKey = `summary:${username}`; // Step 2 key
 
-      const { setCache } = require('../utils/redisClient')
-      await redisClient.del(cacheKey)
+            // 2️⃣ Clear commits cache
+            await redisClient.del(commitsCacheKey);
 
-      console.log("Cache cleared")
+            // 3️⃣ Clear summary cache so background job regenerates it
+            await redisClient.del(summaryCacheKey);
 
+            // Optional: mark summary stale in DB (if using last_updated)
+            await pool.query(
+                `UPDATE summaries SET last_updated = NULL WHERE username = $1`,
+                [username]
+            );
+
+            console.log("Caches cleared, summary marked stale");
+        }
+
+        res.status(200).send("Webhook processed");
+
+    } catch (err) {
+        console.log("ERROR:", err.message);
+        res.status(500).send("Webhook error");
     }
-
-    res.status(200).send("Webhook processed")
-
-  } catch (err) {
-    console.log("ERROR:", err.message)
-    res.status(500).send("Webhook error")
-  }
-}
+};
 
 module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}
