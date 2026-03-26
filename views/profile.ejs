@@ -1,19 +1,22 @@
 <h1>Recent GitHub Activity</h1>
 
+<% if (summary) { %>
+  <section id="ai-summary" style="margin-bottom: 20px;">
+    <h2>AI Summary</h2>
+    <p style="font-style: italic; color: #555;"><%= summary %></p>
+  </section>
+<% } %>
+
 <% if (commits && commits.length > 0) { %>
-
-<ul>
+  <ul>
     <% commits.slice(0,5).forEach(commit => { %>
-        <li>
-            <strong><%= commit.message %></strong>
-            <br>
-            <small><%= new Date(commit.date).toLocaleString() %></small>
-        </li>
+      <li style="margin-bottom: 10px;">
+        <strong><%= commit.message %></strong>
+        <br>
+        <small><%= new Date(commit.date).toLocaleString() %></small>
+      </li>
     <% }) %>
-</ul>
-
+  </ul>
 <% } else { %>
-
-<p>No recent activity found.</p>
-
+  <p>No recent activity found.</p>
 <% } %>

@@ -1,6 +1,7 @@
 const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
+const { generateSummary } = require("../services/aiService");
 // const getHealth=(req,res)=>{
 //     try{
 //         res.json({status:"thriving"})
@@ -56,7 +57,11 @@ const getProfilePage = async (req, res) => {
 
     if (commits) {
       console.log("Serving from Redis")
-      return res.render("profile", { commits })
+
+      // Generate AI summary even if cached
+      const summary = await generateSummary(commits)
+
+      return res.render("profile", { commits, summary })
     }
 
     // 2️⃣ DB instead of GitHub
@@ -77,12 +82,19 @@ const getProfilePage = async (req, res) => {
     //   await saveToDb(commits)
     //   await setCache(cachekey, commits)
     // }
-    console.log("FINAL DATA SENT:", commits);
-    res.render("profile", { commits })
+
+    // Generate AI summary
+    const summary = await generateSummary(commits)
+
+    res.render("profile", { commits, summary })
+    
 
   } catch (error) {
     console.log(error.message)
-    res.render("profile", { commits: [] })
+    res.render("profile", { 
+      commits: [], 
+      summary: "Summary unavailable" // fallback
+    })
   }
 }
 
@@ -170,4 +182,5 @@ const handleGithubWebhook = async (req, res) => {
     res.status(500).send("Webhook error")
   }
 }
+
 module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}
