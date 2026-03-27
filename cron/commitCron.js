@@ -1,13 +1,7 @@
 const cron = require("node-cron");
-const {
-  AllCommits,
-  saveToDb,
-  saveSummary,
-  getLatestCommitsFromDB
-} = require("../services/githubService");
-
+const {AllCommits,saveToDb,saveSummary,getLatestCommitsFromDB} = require("../services/githubService");
 const { redisClient, setCache } = require("../utils/redisClient");
-const { generateSummary } = require("../services/aiService");
+const { generateSummaryWithRetry } = require("../services/aiService");
 
 const username = process.env.GITHUB_USERNAME;
 
@@ -18,38 +12,41 @@ const startCommitCron = () => {
     try {
       const commits = await AllCommits(username);
 
-      // ✅ FILTER VALID COMMITS
+      // ✅ 1️⃣ Filter valid commits
       const validCommits = commits.filter(c =>
         c.message && c.date && c.repo
       );
 
-      if (validCommits.length > 0) {
-        // 1️⃣ Save commits
-        await saveToDb(validCommits);
+      if (validCommits.length === 0) {
+        console.log("No valid commits — skipping everything");
+        return;
+      }
 
-        // 2️⃣ Clear commits cache
-        await redisClient.del(`commits:${username}`);
+      // ✅ 2️⃣ Save commits ONCE
+      await saveToDb(validCommits);
 
-        console.log("Valid commits saved");
+      // ✅ 3️⃣ Clear caches
+      await redisClient.del(`commits:${username}`);
+      await redisClient.del(`summary:${username}`);
 
-        // 3️⃣ Regenerate summary
-        const commitsFromDB = await getLatestCommitsFromDB(20);
-        const summary = await generateSummary(commitsFromDB);
+      console.log("Commits saved & cache cleared");
 
-        if (summary !== "Summary unavailable") {
-          await saveSummary(username, summary);
-          await setCache(`summary:${username}`, summary);
-          console.log("Summary updated via cron");
-        } else {
-          console.log("AI failed — keeping old summary");
-        }
+      // ✅ 4️⃣ Get latest commits from DB
+      const commitsFromDB = await getLatestCommitsFromDB(20);
 
+      // ✅ 5️⃣ Generate summary with retry
+      const summary = await generateSummaryWithRetry(commitsFromDB);
+
+      if (summary) {
+        await saveSummary(username, summary);
+        await setCache(`summary:${username}`, summary);
+        console.log("✅ Summary updated via cron");
       } else {
-        console.log("No valid commits found — skipping DB + summary update");
+        console.log("⚠️ AI failed twice — keeping old summary");
       }
 
     } catch (error) {
-      console.error("Cron job failed:", error.message);
+      console.error("❌ Cron job failed:", error.message);
     }
   });
 };

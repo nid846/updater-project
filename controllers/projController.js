@@ -1,16 +1,8 @@
 const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
-const { generateSummary } = require("../services/aiService");
+const { generateSummaryWithRetry } = require("../services/aiService");
 const pool=require('../db')
-
-// const getHealth=(req,res)=>{
-//     try{
-//         res.json({status:"thriving"})
-//     } catch(err){
-//         res.status(500).json({message:"error..try again"})
-//     }
-// }
 
 const getGithubRepos=async(req, res, next)=>{
     try{
@@ -196,11 +188,20 @@ const handleGithubWebhook = async (req, res) => {
 
             // 2️⃣ Clear commits cache
             await redisClient.del(commitsCacheKey);
-
-            // 3️⃣ regenerate summary immediately
+            await redisClient.del(summaryCacheKey); // 🔥 VERY IMPORTANT
+            
+            // 3️⃣ regenerate summary safely
             const commitsFromDB = await getLatestCommitsFromDB(20);
-            const summary = await generateSummary(commitsFromDB);
 
+            const summary = await generateSummaryWithRetry(commitsFromDB);
+
+            if (summary) {
+                await saveSummary(username, summary);
+                await setCache(summaryCacheKey, summary);
+                console.log("✅ Summary regenerated from webhook");
+            } else {
+                console.log("⚠️ AI failed twice — keeping old summary");
+            }
             if (summary !== "Summary unavailable") {
                 await saveSummary(username, summary);
                 await setCache(summaryCacheKey, summary);

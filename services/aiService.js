@@ -36,4 +36,21 @@ ${commitText}
   }
 }
 
-module.exports = { generateSummary };
+async function generateSummaryWithRetry(commits) {
+    let attempts = 0;
+
+    while (attempts < 2) {
+        const summary = await generateSummary(commits); // ✅ use existing function
+
+        if (summary !== "Summary unavailable") {
+            return summary;
+        }
+
+        console.log("Retrying AI...");
+        attempts++;
+    }
+
+    return null; // IMPORTANT
+}
+
+module.exports = { generateSummary ,generateSummaryWithRetry};
