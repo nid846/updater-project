@@ -116,4 +116,24 @@ async function getLatestCommitsFromDB(limit = 10) {
 
   return result.rows;
 }
-module.exports={getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}
+
+async function saveSummary(username, summaryText) {
+  await pool.query(
+    `INSERT INTO summaries(username, summary, last_updated)
+     VALUES($1, $2, NOW())
+     ON CONFLICT(username) DO UPDATE
+     SET summary = EXCLUDED.summary,
+         last_updated = NOW()`,
+    [username, summaryText]
+  );
+}
+
+async function getSummary(username) {
+  const res = await pool.query(
+    `SELECT summary FROM summaries WHERE username = $1`,
+    [username]
+  );
+  return res.rows[0]?.summary || null;
+}
+
+module.exports={getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}

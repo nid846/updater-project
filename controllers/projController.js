@@ -1,4 +1,4 @@
-const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB}=require("../services/githubService")
+const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
 const { generateSummary } = require("../services/aiService");
@@ -50,53 +50,76 @@ const getAllCommits=async(req,res,next)=>{
 
 const getProfilePage = async (req, res) => {
   try {
+    const username = req.params.username;
+    const commitsCacheKey = `commits:${username}`;
+    const summaryCacheKey = `summary:${username}`;
 
-    const username = req.params.username
-    const cachekey = `commits:${username}`
+    // 1️⃣ Try to get commits from Redis
+    let commits = await getCache(commitsCacheKey);
 
-    // 1️⃣ Redis
-    let commits = await getCache(cachekey)
+    if (!commits) {
+      // 2️⃣ If not in Redis, get from DB
+      commits = await getLatestCommitsFromDB();
+      console.log("Serving commits from DB");
 
-    if (commits) {
-      console.log("Serving from Redis")
-
-      // Generate AI summary even if cached
-      const summary = await generateSummary(commits)
-
-      return res.render("profile", { commits, summary })
-    }
-
-    // 2️⃣ DB instead of GitHub
-    commits = await getLatestCommitsFromDB()
-
-    console.log("Serving from DB")
-
-    if (commits && commits.length > 0) {
-      await setCache(cachekey, commits)
+      if (commits && commits.length > 0) {
+        await setCache(commitsCacheKey, commits);
+      }
+    } else {
+      console.log("Serving commits from Redis");
     }
 
     // GitHub
     // commits = await AllCommits(username)
 
     // console.log("Serving from GitHub")
-
     // if (commits && commits.length > 0) {
     //   await saveToDb(commits)
-    //   await setCache(cachekey, commits)
+    //   await setCache(commitsCacheKey, commits)
     // }
 
-    // Generate AI summary
-    const summary = await generateSummary(commits)
+    // 3️⃣ Try to get summary from Redis
+    let summary = await getCache(summaryCacheKey);
 
-    res.render("profile", { commits, summary })
-    
+    if (!summary) {
+      // 4️⃣ Try DB
+      summary = await getSummary(username);
+
+      if (summary) {
+        console.log("Serving summary from DB");
+        await setCache(summaryCacheKey, summary);
+      } 
+      // 🔥 5️⃣ FIRST-TIME GENERATION (only if DB empty)
+      else if (commits && commits.length > 0) {
+        console.log("First-time summary generation");
+
+        const generated = await generateSummary(commits);
+
+        if (generated !== "Summary unavailable") {
+          await saveSummary(username, generated);
+          await setCache(summaryCacheKey, generated);
+          summary = generated;
+        } else {
+          summary = "Summary not ready yet";
+        }
+      } 
+      // 6️⃣ No commits at all
+      else {
+        summary = "Summary not ready yet";
+      }
+
+    } else {
+      console.log("Serving summary from Redis");
+    }
+
+    res.render("profile", { commits, summary });
 
   } catch (error) {
-    console.log(error.message)
+    console.log(error.message);
     res.render("profile", { 
       commits: [], 
       summary: "Summary unavailable" // fallback
-    })
+    });
   }
 }
 
@@ -174,16 +197,17 @@ const handleGithubWebhook = async (req, res) => {
             // 2️⃣ Clear commits cache
             await redisClient.del(commitsCacheKey);
 
-            // 3️⃣ Clear summary cache so background job regenerates it
-            await redisClient.del(summaryCacheKey);
+            // 3️⃣ regenerate summary immediately
+            const commitsFromDB = await getLatestCommitsFromDB(20);
+            const summary = await generateSummary(commitsFromDB);
 
-            // Optional: mark summary stale in DB (if using last_updated)
-            await pool.query(
-                `UPDATE summaries SET last_updated = NULL WHERE username = $1`,
-                [username]
-            );
-
-            console.log("Caches cleared, summary marked stale");
+            if (summary !== "Summary unavailable") {
+                await saveSummary(username, summary);
+                await setCache(summaryCacheKey, summary);
+                console.log("Summary regenerated from webhook");
+            } else {
+                console.log("AI failed — keeping old summary");
+            }
         }
 
         res.status(200).send("Webhook processed");
