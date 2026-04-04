@@ -90,28 +90,29 @@ const AllCommits = async (username) => {
     return last7DaysCommits
 }
 
-async function saveToDb(commits){
+async function saveToDb(commits, githubUsername){
     for(const commit of commits){
         if(commit.message && commit.date && commit.repo){
             await pool.query(
-                `INSERT INTO commits(repo,message,author,date,sha)
-                VALUES($1 ,$2 ,$3 ,$4, $5)
-                ON CONFLICT (sha) DO NOTHING`,
+                `INSERT INTO commits(repo,message,author,date,sha, github_username)
+                 VALUES($1 ,$2 ,$3 ,$4, $5, $6)
+                 ON CONFLICT (sha) DO NOTHING`,
                 [
-                    commit.repo,commit.message,commit.author,commit.date,commit.sha
+                    commit.repo,commit.message,commit.author,commit.date,commit.sha,githubUsername
                 ]
             )
         }
     }
-} 
+}
 
-async function getLatestCommitsFromDB(limit = 10) {
+async function getLatestCommitsFromDB(username, limit = 10) {
   const result = await pool.query(
     `SELECT repo, message, author, date
      FROM commits
+     WHERE github_username = $1
      ORDER BY date DESC
-     LIMIT $1`,
-    [limit]
+     LIMIT $2`,
+    [username, limit]
   );
 
   return result.rows;

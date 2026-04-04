@@ -1,6 +1,8 @@
 require('dotenv').config()
 // app.set('view engine','ejs')
 
+const session = require("express-session");
+
 const express = require('express')
 const app = express()
 
@@ -14,6 +16,15 @@ app.use('/github/webhook', express.raw({ type: 'application/json' }));
 
 // 2. Apply JSON to everything else
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  session({
+    secret: "supersecretkey",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
 const {connectRedis}=require('./utils/redisClient')
 
@@ -33,5 +44,6 @@ async function startServer(){
         console.log(`server running on port ${port}`)
     })
 }
+
 startServer()
 

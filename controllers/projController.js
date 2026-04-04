@@ -42,16 +42,16 @@ const getAllCommits=async(req,res,next)=>{
 
 const getProfilePage = async (req, res) => {
   try {
-    const username = req.params.username;
-    const commitsCacheKey = `commits:${username}`;
-    const summaryCacheKey = `summary:${username}`;
+    const githubUsername = req.session.user.github_username;
+    const commitsCacheKey = `commits:${githubUsername}`;
+    const summaryCacheKey = `summary:${githubUsername}`;
 
     // 1️⃣ Try to get commits from Redis
     let commits = await getCache(commitsCacheKey);
 
     if (!commits) {
       // 2️⃣ If not in Redis, get from DB
-      commits = await getLatestCommitsFromDB();
+      commits = await getLatestCommitsFromDB(githubUsername, 10);
       console.log("Serving commits from DB");
 
       if (commits && commits.length > 0) {
@@ -75,7 +75,7 @@ const getProfilePage = async (req, res) => {
 
     if (!summary) {
       // 4️⃣ Try DB
-      summary = await getSummary(username);
+      summary = await getSummary(githubUsername);
 
       if (summary) {
         console.log("Serving summary from DB");
@@ -85,10 +85,10 @@ const getProfilePage = async (req, res) => {
       else if (commits && commits.length > 0) {
         console.log("First-time summary generation");
 
-        const generated = await generateSummary(commits);
+        const generated = await generateSummaryWithRetry(commits);
 
         if (generated !== "Summary unavailable") {
-          await saveSummary(username, generated);
+          await saveSummary(githubUsername, generated);
           await setCache(summaryCacheKey, generated);
           summary = generated;
         } else {
@@ -99,13 +99,10 @@ const getProfilePage = async (req, res) => {
       else {
         summary = "Summary not ready yet";
       }
-
     } else {
       console.log("Serving summary from Redis");
     }
-
     res.render("profile", { commits, summary });
-
   } catch (error) {
     console.log(error.message);
     res.render("profile", { 
@@ -148,75 +145,92 @@ const verifySignature = (req) => {
 }
 
 const handleGithubWebhook = async (req, res) => {
-    if (!verifySignature(req)) {
-        return res.status(401).send("Invalid signature");
+  if (!verifySignature(req)) {
+    return res.status(401).send("Invalid signature");
+  }
+
+  console.log("🚀 WEBHOOK HIT");
+
+  try {
+    const event = req.headers["x-github-event"];
+
+    if (event === "push") {
+      const payload = JSON.parse(req.body.toString());
+
+      const repoName = payload.repository?.name;
+      const commits = payload.commits || [];
+
+      console.log("Repo:", repoName);
+      console.log("Commits received:", commits.length);
+
+      if (commits.length === 0) {
+        return res.status(200).send("No commits");
+      }
+
+      // ✅ Get GitHub username
+      const githubUsername =
+        payload.repository?.owner?.login ||
+        payload.repository?.owner?.name;
+
+      if (!githubUsername) {
+        console.log("No GitHub username found");
+        return res.status(200).send("No username");
+      }
+
+      console.log("GitHub User:", githubUsername);
+
+      // ✅ Format commits
+      const formattedCommits = commits.map(c => ({
+        repo: repoName,
+        message: c.message,
+        author: c.author.name,
+        date: c.timestamp,
+        sha: c.id
+      }));
+
+      console.log("Formatted commits:", formattedCommits);
+
+      // ✅ Save commits using github_username
+      await saveToDb(formattedCommits, githubUsername);
+
+      // ✅ Cache keys (USER SPECIFIC)
+      const commitsCacheKey = `commits:${githubUsername}`;
+      const summaryCacheKey = `summary:${githubUsername}`;
+
+      // ✅ Clear old cache
+      await redisClient.del(commitsCacheKey);
+      await redisClient.del(summaryCacheKey);
+
+      console.log("Cache cleared");
+
+      // ✅ Fetch commits for THIS user only
+      const commitsFromDB = await getLatestCommitsFromDB(githubUsername, 20);
+
+      if (!commitsFromDB || commitsFromDB.length === 0) {
+        console.log("No commits found for summary");
+        return res.status(200).send("No commits for summary");
+      }
+
+      console.log("Generating summary...");
+
+      // ✅ Generate summary
+      const summary = await generateSummaryWithRetry(commitsFromDB);
+
+      if (summary && summary !== "Summary unavailable") {
+        await saveSummary(githubUsername, summary);
+        await setCache(summaryCacheKey, summary);
+        console.log("✅ Summary updated for:", githubUsername);
+      } else {
+        console.log("⚠️ AI failed — keeping old summary");
+      }
     }
-    console.log("WEBHOOK HIT");
 
-    try {
-        const event = req.headers["x-github-event"];
+    res.status(200).send("Webhook processed");
 
-        if (event === "push") {
-            const payload = JSON.parse(req.body.toString()); 
-
-            const repoName = payload.repository?.name;
-            const commits = payload.commits || [];
-
-            console.log("Repo:", repoName);
-            console.log("Commits received:", commits.length);
-
-            if (commits.length === 0) {
-                return res.status(200).send("No commits");
-            }
-
-            const formattedCommits = commits.map(c => ({
-                repo: repoName,
-                message: c.message,
-                author: c.author.name,
-                date: c.timestamp,
-                sha: c.id 
-            }));
-
-            console.log("Formatted:", formattedCommits);
-
-            // 1️⃣ Save commits to DB
-            await saveToDb(formattedCommits);
-
-            const username = payload.repository.owner.name || payload.repository.owner.login;
-            const commitsCacheKey = `commits:${username}`;
-            const summaryCacheKey = `summary:${username}`; // Step 2 key
-
-            // 2️⃣ Clear commits cache
-            await redisClient.del(commitsCacheKey);
-            await redisClient.del(summaryCacheKey); // 🔥 VERY IMPORTANT
-            
-            // 3️⃣ regenerate summary safely
-            const commitsFromDB = await getLatestCommitsFromDB(20);
-
-            const summary = await generateSummaryWithRetry(commitsFromDB);
-
-            if (summary) {
-                await saveSummary(username, summary);
-                await setCache(summaryCacheKey, summary);
-                console.log("✅ Summary regenerated from webhook");
-            } else {
-                console.log("⚠️ AI failed twice — keeping old summary");
-            }
-            if (summary !== "Summary unavailable") {
-                await saveSummary(username, summary);
-                await setCache(summaryCacheKey, summary);
-                console.log("Summary regenerated from webhook");
-            } else {
-                console.log("AI failed — keeping old summary");
-            }
-        }
-
-        res.status(200).send("Webhook processed");
-
-    } catch (err) {
-        console.log("ERROR:", err.message);
-        res.status(500).send("Webhook error");
-    }
+  } catch (err) {
+    console.error("❌ WEBHOOK ERROR:", err.message);
+    res.status(500).send("Webhook error");
+  }
 };
 
 module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}

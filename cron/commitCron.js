@@ -1,52 +1,80 @@
 const cron = require("node-cron");
+const pool = require("../db");
+
 const {AllCommits,saveToDb,saveSummary,getLatestCommitsFromDB} = require("../services/githubService");
 const { redisClient, setCache } = require("../utils/redisClient");
 const { generateSummaryWithRetry } = require("../services/aiService");
 
-const username = process.env.GITHUB_USERNAME;
-
 const startCommitCron = () => {
-  cron.schedule("0 */24 * * *", async () => {
-    console.log("Running commit cron job...");
-
+  // Runs once every day at midnight
+  cron.schedule("0 0 * * *", async () => {
+    console.log("⏰ Running commit cron for ALL users...");
     try {
-      const commits = await AllCommits(username);
+      // ✅ Get all users
+      const users = await pool.query(`SELECT github_username FROM users WHERE github_username IS NOT NULL`);
 
-      // ✅ 1️⃣ Filter valid commits
-      const validCommits = commits.filter(c =>
-        c.message && c.date && c.repo
-      );
+      for (const user of users.rows) {
+        const username = user.github_username;
+        try {
+          console.log(`🔄 Processing ${username}`);
 
-      if (validCommits.length === 0) {
-        console.log("No valid commits — skipping everything");
-        return;
+          // ✅ Fetch commits
+          const commits = await AllCommits(username);
+
+          const validCommits = commits.filter(
+            (c) => c.message && c.date && c.repo
+          );
+
+          if (validCommits.length === 0) {
+            console.log(`⚠️ No valid commits for ${username}`);
+            continue;
+          }
+
+          console.log(`${validCommits.length} commits fetched`);
+
+          // ✅ Attach username
+          const commitsWithUser = validCommits.map((c) => ({
+            ...c,
+            username,
+          }));
+
+          // ✅ Save to DB
+          await saveToDb(commitsWithUser, username);
+
+          // ✅ Clear cache
+          await redisClient.del(`commits:${username}`);
+          await redisClient.del(`summary:${username}`);
+
+          // ✅ Get latest commits
+          const commitsFromDB = await getLatestCommitsFromDB(username,20);
+
+          if (!commitsFromDB.length) {
+            console.log(`⚠️ No commits found in DB for ${username}`);
+            continue;
+          }
+
+          console.log(`🧠 Generating summary for ${username}...`);
+
+          // ✅ Generate summary
+          const summary = await generateSummaryWithRetry(commitsFromDB);
+
+          if (summary) {
+            await saveSummary(username, summary);
+            await setCache(`summary:${username}`, summary);
+          }
+
+          console.log(`✅ Done for ${username}`);
+        } catch (err) {
+          // ✅ Per-user error handling (IMPORTANT)
+          console.error(
+            `❌ Failed for ${username}:`,
+            err.message
+          );
+        }
       }
-
-      // ✅ 2️⃣ Save commits ONCE
-      await saveToDb(validCommits);
-
-      // ✅ 3️⃣ Clear caches
-      await redisClient.del(`commits:${username}`);
-      await redisClient.del(`summary:${username}`);
-
-      console.log("Commits saved & cache cleared");
-
-      // ✅ 4️⃣ Get latest commits from DB
-      const commitsFromDB = await getLatestCommitsFromDB(20);
-
-      // ✅ 5️⃣ Generate summary with retry
-      const summary = await generateSummaryWithRetry(commitsFromDB);
-
-      if (summary) {
-        await saveSummary(username, summary);
-        await setCache(`summary:${username}`, summary);
-        console.log("✅ Summary updated via cron");
-      } else {
-        console.log("⚠️ AI failed twice — keeping old summary");
-      }
-
-    } catch (error) {
-      console.error("❌ Cron job failed:", error.message);
+    } catch (err) {
+      // ✅ Global cron error handling
+      console.error("❌ Cron failed:", err.message);
     }
   });
 };
