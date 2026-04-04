@@ -12,7 +12,10 @@ startCommitCron();
 // app.use('/webhook', express.raw({ type: 'application/json' }));
 // app.use(express.json())
 // 1. Apply RAW body ONLY to webhook
-app.use('/github/webhook', express.raw({ type: 'application/json' }));
+app.use(
+  "/github/webhook",
+  require("express").raw({ type: "*/*" }) 
+);
 
 // 2. Apply JSON to everything else
 app.use(express.json());
