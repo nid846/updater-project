@@ -59,18 +59,7 @@ const getProfilePage = async (req, res) => {
       }
     } else {
       console.log("Serving commits from Redis");
-    }
-
-    // GitHub
-    // commits = await AllCommits(username)
-
-    // console.log("Serving from GitHub")
-    // if (commits && commits.length > 0) {
-    //   await saveToDb(commits)
-    //   await setCache(commitsCacheKey, commits)
-    // }
-
-    // 3️⃣ Try to get summary from Redis
+    } 
     let summary = await getCache(summaryCacheKey);
 
     if (!summary) {

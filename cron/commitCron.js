@@ -7,7 +7,7 @@ const { generateSummaryWithRetry } = require("../services/aiService");
 
 const startCommitCron = () => {
   // Runs once every day at midnight
-  cron.schedule("0 0 * * *", async () => {
+  cron.schedule("*/10 * * * *", async () => {
     console.log("⏰ Running commit cron for ALL users...");
     try {
       // ✅ Get all users
