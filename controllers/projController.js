@@ -1,8 +1,7 @@
 const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
-const { generateSummaryWithRetry } = require("../services/aiService");
-const pool=require('../db')
+const { generateSummaryWithRetry, generateDeveloperSummary,generateTopProjects } = require("../services/aiService");const pool=require('../db')
 
 const getGithubRepos=async(req, res, next)=>{
     try{
@@ -50,16 +49,31 @@ const getProfilePage = async (req, res) => {
     let commits = await getCache(commitsCacheKey);
 
     if (!commits) {
-      // 2️⃣ If not in Redis, get from DB
+      console.log("⚡ Cache miss → syncing from GitHub...");
+
+      // 🔥 MANUAL FETCH (ONLY when cache is empty)
+      const freshCommits = await AllCommits(githubUsername);
+
+      if (freshCommits && freshCommits.length > 0) {
+        await saveToDb(freshCommits, githubUsername);
+        console.log("✅ DB synced with latest commits");
+      } else {
+        console.log("⚠️ No new commits found from GitHub");
+      }
+
+      // 2️⃣ Get from DB AFTER sync
       commits = await getLatestCommitsFromDB(githubUsername, 10);
-      console.log("Serving commits from DB");
+      console.log("📦 Serving commits from DB");
 
       if (commits && commits.length > 0) {
         await setCache(commitsCacheKey, commits);
       }
     } else {
-      console.log("Serving commits from Redis");
-    } 
+      console.log("⚡ Serving commits from Redis");
+    }
+
+    // ================= SUMMARY =================
+
     let summary = await getCache(summaryCacheKey);
 
     if (!summary) {
@@ -67,12 +81,12 @@ const getProfilePage = async (req, res) => {
       summary = await getSummary(githubUsername);
 
       if (summary) {
-        console.log("Serving summary from DB");
+        console.log("📦 Serving summary from DB");
         await setCache(summaryCacheKey, summary);
       } 
-      // 🔥 5️⃣ FIRST-TIME GENERATION (only if DB empty)
+      // 🔥 5️⃣ FIRST-TIME GENERATION
       else if (commits && commits.length > 0) {
-        console.log("First-time summary generation");
+        console.log("🧠 First-time summary generation");
 
         const generated = await generateSummaryWithRetry(commits);
 
@@ -84,22 +98,24 @@ const getProfilePage = async (req, res) => {
           summary = "Summary not ready yet";
         }
       } 
-      // 6️⃣ No commits at all
+      // 6️⃣ No commits
       else {
         summary = "Summary not ready yet";
       }
     } else {
-      console.log("Serving summary from Redis");
+      console.log("⚡ Serving summary from Redis");
     }
+
     res.render("profile", { commits, summary });
+
   } catch (error) {
     console.log(error.message);
     res.render("profile", { 
       commits: [], 
-      summary: "Summary unavailable" // fallback
+      summary: "Summary unavailable"
     });
   }
-}
+};
 
 const crypto = require('crypto');
 const verifySignature = (req) => {
