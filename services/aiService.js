@@ -27,7 +27,7 @@ ${commitText}
       chatCompletion?.choices?.[0]?.message?.content?.trim() ||
       "Summary unavailable";
 
-    console.log(chatCompletion?.choices?.[0]?.message?.content?.trim());
+    console.log(summary);
     return summary;
 
   } catch (err) {
@@ -37,42 +37,51 @@ ${commitText}
 }
 
 async function generateSummaryWithRetry(commits) {
-    let attempts = 0;
-    while (attempts < 2) {
-        const summary = await generateSummary(commits); // ✅ use existing function
-        if (summary !== "Summary unavailable") {
-            return summary;
-        }
-        console.log("Retrying AI...");
-        attempts++;
+  let attempts = 0;
+
+  while (attempts < 2) {
+    const summary = await generateSummary(commits);
+
+    if (summary !== "Summary unavailable") {
+      return summary;
     }
-    return null; // IMPORTANT
+
+    console.log("Retrying AI...");
+    attempts++;
+  }
+
+  return null;
 }
 
 async function generateDeveloperSummary(commits) {
   try {
     const commitText = commits.map(c => c.message).join("\n");
+
     const prompt = `
-      You are analyzing a developer's GitHub commits.
+You are analyzing a developer's GitHub commits.
 
-      Based ONLY on the commit messages, generate a professional developer summary.
+Based ONLY on the commit messages, generate a professional developer summary.
 
-      Rules:
-      - 1-2 lines max
-      - Mention role (Frontend / Backend / Fullstack)
-      - Mention technologies (Node.js, React, DB, etc.)
-      - Sound like a resume headline
-      - No assumptions beyond commits
+Rules:
+- 1-2 lines max
+- Mention role (Frontend / Backend / Fullstack)
+- Mention technologies
+- Resume-style sentence
+- No assumptions beyond commits
 
-      Commits:
-      ${commitText}
-      `;
+Commits:
+${commitText}
+`;
+
     const res = await client.chatCompletion({
       model: "google/gemma-3-27b-it:featherless-ai",
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }]
     });
+
     return res?.choices?.[0]?.message?.content?.trim() || null;
+
   } catch (err) {
+    console.error("Dev Summary Error:", err.message);
     return null;
   }
 }
@@ -88,7 +97,8 @@ function groupByRepo(commits) {
 
   return map;
 }
-// 🔹 MAIN: Generate Top Projects
+
+// 🔹 MAIN: Generate Top Projects (FIXED)
 async function generateTopProjects(commits) {
   try {
     const grouped = groupByRepo(commits);
@@ -97,13 +107,11 @@ async function generateTopProjects(commits) {
 You are analyzing GitHub repositories.
 
 From the grouped commits below:
-1. Identify top 3 most meaningful projects
-2. Give each:
-   - Project name
-   - 1 line description
-   - Tech used
+1. Identify top 3 meaningful projects
+2. Return ONLY valid JSON
+3. No markdown, no explanation
 
-Return STRICT JSON:
+STRICT FORMAT:
 [
  { "name": "", "description": "", "tech": [] }
 ]
@@ -117,13 +125,40 @@ ${JSON.stringify(grouped)}
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }]
     });
 
-    const content = res?.choices?.[0]?.message?.content?.trim();
+    let content = res?.choices?.[0]?.message?.content?.trim();
 
-    // ✅ IMPORTANT: Parse JSON safely
+    console.log("RAW PROJECT AI:", content); // 🔥 debug once
+
+    // 🔥 CLEANING STARTS HERE
+    if (!content) return [];
+
+    // Remove ```json blocks
+    content = content
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    // Extract JSON array only
+    const start = content.indexOf("[");
+    const end = content.lastIndexOf("]");
+
+    if (start !== -1 && end !== -1) {
+      content = content.slice(start, end + 1);
+    }
+
     try {
-      return JSON.parse(content);
-    } catch {
-      console.log("⚠️ JSON parse failed");
+      const parsed = JSON.parse(content);
+
+      // ✅ Safety check
+      if (!Array.isArray(parsed)) {
+        console.log("⚠️ Not an array");
+        return [];
+      }
+
+      return parsed;
+
+    } catch (err) {
+      console.log("❌ FINAL PARSE ERROR:", content);
       return [];
     }
 
@@ -133,4 +168,9 @@ ${JSON.stringify(grouped)}
   }
 }
 
-module.exports = { generateSummary ,generateSummaryWithRetry,generateDeveloperSummary,generateTopProjects};
+module.exports = {
+  generateSummary,
+  generateSummaryWithRetry,
+  generateDeveloperSummary,
+  generateTopProjects
+};

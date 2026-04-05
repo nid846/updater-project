@@ -20,3 +20,34 @@
 <% } else { %>
   <p>No recent activity found.</p>
 <% } %>
+
+<!-- 🔥 DEV SUMMARY -->
+<% if (devSummary) { %>
+  <section style="margin-bottom: 20px;">
+    <h2>Developer Profile</h2>
+    <p style="color: #333; font-weight: 500;"><%= devSummary %></p>
+  </section>
+<% } else { %>
+  <p>Developer profile not generated yet.</p>
+<% } %>
+
+<!-- 🔥 TOP PROJECTS SECTION -->
+<% if (projects && projects.length > 0) { %>
+  <section style="margin-top: 30px;">
+    <h2>Top Projects</h2>
+
+    <% projects.forEach(p => { %>
+      <div style="margin-bottom: 15px;">
+        <strong><%= p.name %></strong>
+        <p><%= p.description %></p>
+
+        <% if (p.tech && p.tech.length > 0) { %>
+          <small>Tech: <%= p.tech.join(", ") %></small>
+        <% } %>
+      </div>
+    <% }) %>
+
+  </section>
+<% } else { %>
+  <p style="margin-top: 20px;">No projects generated yet.</p>
+<% } %>

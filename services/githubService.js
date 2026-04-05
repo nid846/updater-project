@@ -137,4 +137,41 @@ async function getSummary(username) {
   return res.rows[0]?.summary || null;
 }
 
-module.exports={getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}
+const saveDevSummary = async (username, summary) => {
+  await pool.query(
+    `INSERT INTO developer_summary (github_username, summary)
+     VALUES ($1, $2)
+     ON CONFLICT (github_username)
+     DO UPDATE SET summary = EXCLUDED.summary`,
+    [username, summary]
+  );
+};
+
+const getDevSummary = async (username) => {
+  const res = await pool.query(
+    `SELECT summary FROM developer_summary WHERE github_username = $1`,
+    [username]
+  );
+  return res.rows[0]?.summary;
+};
+
+const saveProjects = async (username, projects) => {
+  await pool.query(
+    `INSERT INTO projects (github_username, project_data)
+     VALUES ($1, $2)
+     ON CONFLICT (github_username)
+     DO UPDATE SET project_data = EXCLUDED.project_data`,
+    [username, JSON.stringify(projects)]
+  );
+};
+
+const getProjects = async (username) => {
+  const res = await pool.query(
+    `SELECT project_data FROM projects WHERE github_username = $1`,
+    [username]
+  );
+    const data = res.rows[0]?.project_data;
+    if (!data) return [];
+    return typeof data === "string" ? JSON.parse(data) : data;
+};
+module.exports={getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary,saveDevSummary,getDevSummary,saveProjects,getProjects}

@@ -1,4 +1,4 @@
-const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary}=require("../services/githubService")
+const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary,saveDevSummary, getDevSummary, saveProjects, getProjects}=require("../services/githubService")
 const {getCache,setCache}=require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
 const { generateSummaryWithRetry, generateDeveloperSummary,generateTopProjects } = require("../services/aiService");const pool=require('../db')
@@ -45,13 +45,15 @@ const getProfilePage = async (req, res) => {
     const commitsCacheKey = `commits:${githubUsername}`;
     const summaryCacheKey = `summary:${githubUsername}`;
 
+    const devSummaryCacheKey = `devSummary:${githubUsername}`; // 🔥 NEW
+    const projectsCacheKey = `projects:${githubUsername}`; // 🔥 NEW
+
     // 1️⃣ Try to get commits from Redis
     let commits = await getCache(commitsCacheKey);
 
     if (!commits) {
       console.log("⚡ Cache miss → syncing from GitHub...");
 
-      // 🔥 MANUAL FETCH (ONLY when cache is empty)
       const freshCommits = await AllCommits(githubUsername);
 
       if (freshCommits && freshCommits.length > 0) {
@@ -61,7 +63,6 @@ const getProfilePage = async (req, res) => {
         console.log("⚠️ No new commits found from GitHub");
       }
 
-      // 2️⃣ Get from DB AFTER sync
       commits = await getLatestCommitsFromDB(githubUsername, 10);
       console.log("📦 Serving commits from DB");
 
@@ -77,14 +78,12 @@ const getProfilePage = async (req, res) => {
     let summary = await getCache(summaryCacheKey);
 
     if (!summary) {
-      // 4️⃣ Try DB
       summary = await getSummary(githubUsername);
 
       if (summary) {
         console.log("📦 Serving summary from DB");
         await setCache(summaryCacheKey, summary);
       } 
-      // 🔥 5️⃣ FIRST-TIME GENERATION
       else if (commits && commits.length > 0) {
         console.log("🧠 First-time summary generation");
 
@@ -98,7 +97,6 @@ const getProfilePage = async (req, res) => {
           summary = "Summary not ready yet";
         }
       } 
-      // 6️⃣ No commits
       else {
         summary = "Summary not ready yet";
       }
@@ -106,13 +104,76 @@ const getProfilePage = async (req, res) => {
       console.log("⚡ Serving summary from Redis");
     }
 
-    res.render("profile", { commits, summary });
+    // ================= 🔥 DEV SUMMARY =================
+
+    let devSummary = await getCache(devSummaryCacheKey);
+
+    if (!devSummary) {
+      devSummary = await getDevSummary(githubUsername);
+
+      if (devSummary) {
+        console.log("📦 Dev summary from DB");
+        await setCache(devSummaryCacheKey, devSummary);
+      } 
+      else if (commits && commits.length > 0) {
+        console.log("🧠 Generating developer summary...");
+
+        const generated = await generateDeveloperSummary(commits);
+
+        if (generated) {
+          await saveDevSummary(githubUsername, generated);
+          await setCache(devSummaryCacheKey, generated);
+          devSummary = generated;
+        } else {
+          devSummary = "Profile summary not ready";
+        }
+      } else {
+        devSummary = "Profile summary not ready";
+      }
+    }
+
+    // ================= 🔥 TOP PROJECTS =================
+
+    let projects = await getCache(projectsCacheKey);
+
+    if (!projects) {
+      projects = await getProjects(githubUsername);
+
+      if (projects && projects.length > 0) {
+        console.log("📦 Projects from DB");
+        await setCache(projectsCacheKey, projects);
+      } 
+      else if (commits && commits.length > 0) {
+        console.log("🚀 Generating top projects...");
+
+        const generated = await generateTopProjects(commits);
+
+        if (generated && generated.length > 0) {
+          await saveProjects(githubUsername, generated);
+          await setCache(projectsCacheKey, generated);
+          projects = generated;
+        } else {
+          projects = [];
+        }
+      } else {
+        projects = [];
+      }
+    }
+
+    res.render("profile", { 
+      commits, 
+      summary, 
+      devSummary,   // 🔥 NEW
+      projects      // 🔥 NEW
+    });
 
   } catch (error) {
     console.log(error.message);
     res.render("profile", { 
       commits: [], 
-      summary: "Summary unavailable"
+      summary: "Summary unavailable",
+      devSummary: "Unavailable", // 🔥 NEW
+      projects: []               // 🔥 NEW
     });
   }
 };
@@ -205,7 +266,8 @@ const handleGithubWebhook = async (req, res) => {
       // ✅ Clear old cache
       await redisClient.del(commitsCacheKey);
       await redisClient.del(summaryCacheKey);
-
+      await redisClient.del(`devSummary:${githubUsername}`);
+      await redisClient.del(`projects:${githubUsername}`);
       console.log("Cache cleared");
 
       // ✅ Fetch commits for THIS user only
