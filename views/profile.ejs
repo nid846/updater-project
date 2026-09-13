@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Portfolio &bull; GitPulse</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Navigation -->
+    <header class="navbar">
+      <div class="brand-logo">
+        <span class="brand-dot"></span>
+        <span>GITPULSE</span>
+      </div>
+      
+      <div class="nav-user">
+        <% if (commits && commits.length > 0 && commits[0].author) { %>
+          <div class="user-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-red);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span><%= commits[0].author %></span>
+          </div>
+        <% } %>
+        <a href="/logout" class="btn-logout">
+          <span>Logout</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero / Developer Summary -->
+    <section class="dashboard-hero">
+      <div class="hero-profile-card">
+        <div class="hero-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-red);"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          <span>Developer Persona</span>
+        </div>
+        <% if (devSummary) { %>
+          <p class="hero-text"><%= devSummary %></p>
+        <% } else { %>
+          <p class="hero-text" style="color: var(--text-muted);">Developer profile summary is currently being generated...</p>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Two-Column Grid: Commits & AI Insights -->
+    <div class="dashboard-columns section-grid">
+      
+      <!-- Recent Commits Feed -->
+      <section class="card card-glow-border">
+        <div class="card-header">
+          <span class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="1.05" y1="12" x2="7" y2="12"></line><line x1="17.01" y1="12" x2="22.96" y2="12"></line></svg>
+          </span>
+          <h2 class="card-title">Recent Activity</h2>
+        </div>
+
+        <% if (commits && commits.length > 0) { %>
+          <ul class="timeline-list">
+            <% commits.slice(0, 6).forEach(commit => { %>
+              <li class="timeline-item">
+                <span class="timeline-bullet"></span>
+                <div class="timeline-content">
+                  <div class="timeline-message"><%= commit.message %></div>
+                  <div class="timeline-meta">
+                    <% if (commit.repo) { %>
+                      <span class="meta-badge"><%= commit.repo %></span>
+                    <% } %>
+                    <span><%= new Date(commit.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></span>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <div class="empty-state">
+            <p>No recent activity found on GitHub.</p>
+          </div>
+        <% } %>
+      </section>
+
+      <!-- AI Insights / Activity Synthesis -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+          </span>
+          <h2 class="card-title">AI Activity Synthesis</h2>
+        </div>
+
+        <% if (summary) { %>
+          <div class="ai-box">
+            <p><%= summary %></p>
+          </div>
+        <% } else { %>
+          <div class="empty-state">
+            <p>AI synthesis is not ready yet.</p>
+          </div>
+        <% } %>
+      </section>
+
+    </div>
+
+    <!-- Top Projects Section -->
+    <section class="card" style="margin-top: 10px;">
+      <div class="card-header">
+        <span class="card-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </span>
+        <h2 class="card-title">Featured Highlights & Projects</h2>
+      </div>
+
+      <% if (projects && projects.length > 0) { %>
+        <div class="projects-grid" style="margin-top: 16px;">
+          <% projects.forEach(p => { 
+               const repoUrl = p.url || (p.name && p.name.startsWith('http') ? p.name : (githubUsername ? `https://github.com/${githubUsername}/${p.name}` : '#'));
+          %>
+            <div class="project-card">
+              <div>
+                <a href="<%= repoUrl %>" target="_blank" rel="noopener noreferrer" class="project-title-link">
+                  <span class="project-title"><%= p.name %></span>
+                  <svg class="repo-arrow-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>
+                <p class="project-desc"><%= p.description %></p>
+              </div>
+
+              <% if (p.tech && p.tech.length > 0) { %>
+                <div class="tech-tags">
+                  <% p.tech.forEach(t => { %>
+                    <span class="tech-tag"><%= t %></span>
+                  <% }) %>
+                </div>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="empty-state">
+          <p>No project highlights generated yet.</p>
+        </div>
+      <% } %>
+    </section>
+
+  </div>
+</body>
+</html>

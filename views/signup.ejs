@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up &bull; GitPulse</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span class="brand-dot"></span>
+          <span style="font-weight: 800; letter-spacing: 1px; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase;">GitPulse</span>
+        </div>
+        <h1>Create Account</h1>
+        <p>Sync your GitHub & track automated developer profiles</p>
+      </div>
+
+      <form method="POST" action="/signup">
+        <div class="form-group">
+          <label class="form-label" for="username">Full Name / Username</label>
+          <input class="input-field" id="username" name="username" placeholder="Alex Rivers" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="github_username">GitHub Username</label>
+          <input class="input-field" id="github_username" name="github_username" placeholder="alexrivers" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="input-field" id="email" name="email" type="email" placeholder="alex@example.com" required autocomplete="email" />
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="input-field" id="password" name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required autocomplete="new-password" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top: 28px;">
+          <span>Get Started</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        Already have an account? <a href="/login">Sign in</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
