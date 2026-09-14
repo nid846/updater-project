@@ -28,6 +28,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
+const { initDB } = require("./init_db");
+initDB();
+
 const { startCommitCron } = require("./cron/commitCron");
 startCommitCron();
 

@@ -2,7 +2,7 @@ const pool = require('./db');
 
 async function initDB() {
   try {
-    console.log("Checking and creating tables...");
+    console.log("Checking and ensuring database tables...");
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -41,17 +41,13 @@ async function initDB() {
     `);
 
     console.log("✅ All tables ensured successfully!");
-    
-    // Check existing users count
-    const res = await pool.query('SELECT id, username, email, github_username, password FROM users');
-    console.log(`Found ${res.rows.length} users in DB:`);
-    console.log(res.rows);
-
   } catch (err) {
-    console.error("❌ Database initialization error:", err);
-  } finally {
-    await pool.end();
+    console.error("❌ Database initialization error:", err.message);
   }
 }
 
-initDB();
+if (require.main === module) {
+  initDB().then(() => pool.end());
+}
+
+module.exports = { initDB };

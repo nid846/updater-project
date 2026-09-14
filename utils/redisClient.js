@@ -1,13 +1,30 @@
 const { createClient } = require('redis');
 
-const redisClient = createClient(
-  process.env.REDIS_URL ? { url: process.env.REDIS_URL } : {}
-);
+let rawRedisUrl = process.env.REDIS_URL ? process.env.REDIS_URL.trim() : '';
+// Clean up accidental 'REDIS_URL=' prefix or surrounding quotes if pasted into Render UI
+if (rawRedisUrl.startsWith('REDIS_URL=')) {
+  rawRedisUrl = rawRedisUrl.replace(/^REDIS_URL=/, '').trim();
+}
+if ((rawRedisUrl.startsWith('"') && rawRedisUrl.endsWith('"')) || (rawRedisUrl.startsWith("'") && rawRedisUrl.endsWith("'"))) {
+  rawRedisUrl = rawRedisUrl.slice(1, -1).trim();
+}
 
-redisClient.on('error', (err) => {
-  // Log redis warning without crashing
-  console.warn("Redis client warning:", err.message);
-});
+let redisClient;
+try {
+  redisClient = createClient(rawRedisUrl ? { url: rawRedisUrl } : {});
+  redisClient.on('error', (err) => {
+    console.warn("Redis client warning:", err.message);
+  });
+} catch (err) {
+  console.error("Redis client initialization error:", err.message);
+  redisClient = {
+    isOpen: false,
+    connect: async () => {},
+    get: async () => null,
+    set: async () => {},
+    del: async () => {}
+  };
+}
 
 async function connectRedis() {
   if (!redisClient.isOpen) {
