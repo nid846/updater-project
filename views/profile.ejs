@@ -27,10 +27,6 @@
             <span><%= commits[0].author %></span>
           </div>
         <% } %>
-        <a href="/profile/<%= githubUsername %>?refresh=true" class="btn-logout" style="margin-right: 8px; text-decoration: none;" title="Sync latest commits and regenerate AI insights">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          <span>Sync & Refresh</span>
-        </a>
         <a href="/logout" class="btn-logout">
           <span>Logout</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -45,8 +41,14 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-red);"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
           <span>Developer Persona</span>
         </div>
-        <% if (devSummary) { %>
-          <p class="hero-text"><%= devSummary %></p>
+        <% if (devSummary) { 
+             let cleanDev = devSummary
+               .replace(/^Here('s| is) (a|an) (resume|executive)? statement[^:]*:\s*/i, '')
+               .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+               .replace(/\n\s*\*\s*/g, '<br>&bull; ')
+               .replace(/\n\n+/g, '<br><br>');
+        %>
+          <div class="hero-text"><%- cleanDev %></div>
         <% } else { %>
           <p class="hero-text" style="color: var(--text-muted);">Developer profile summary is currently being generated...</p>
         <% } %>

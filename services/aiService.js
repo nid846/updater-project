@@ -69,13 +69,14 @@ async function generateDeveloperSummary(commits) {
     const commitText = commits.map(c => `[${c.repo || 'Repo'}] ${c.message}`).join("\n");
 
     const prompt = `
-You are analyzing a software engineer's profile and repositories for an interview portfolio.
+You are an executive talent evaluator analyzing a software engineer's code commits and repositories.
 
-Based on the tools, technologies, and repository context shown in their commits:
-1. Synthesize their primary specialization (e.g., Full-Stack Engineer, Backend & Cloud Developer, Systems Architect).
-2. Explicitly highlight key tech stacks, frameworks, and tools used.
-3. Frame it as a 1-2 sentence executive resume statement tailored to impress technical interviewers.
-4. Do NOT refuse or ask for more info. Always return a resume statement.
+Based on the commit context below, write a high-impact, professional 2-3 sentence executive summary of this developer's engineering capabilities, primary specialization, and technical strengths.
+
+Rules:
+- Output ONLY the summary paragraph directly.
+- Do NOT include any intro like "Here is a resume statement..." or conversational prefixes.
+- Highlight core proficiencies and engineering velocity in a polished, fluid tone.
 
 Commits & Repositories:
 ${commitText}
