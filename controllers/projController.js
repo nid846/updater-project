@@ -42,17 +42,26 @@ const getAllCommits = async (req, res, next) => {
 const getProfilePage = async (req, res) => {
   try {
     const githubUsername = req.session.user.github_username;
+    const forceRefresh = req.query.refresh === 'true';
+
     const commitsCacheKey = `commits:${githubUsername}`;
     const summaryCacheKey = `summary:${githubUsername}`;
-
     const devSummaryCacheKey = `devSummary:${githubUsername}`;
     const projectsCacheKey = `projects:${githubUsername}`;
 
-    //Try to get commits from Redis
-    let commits = await getCache(commitsCacheKey);
+    if (forceRefresh) {
+      console.log(`🔄 Force refresh requested for ${githubUsername}`);
+      await redisClient.del(commitsCacheKey);
+      await redisClient.del(summaryCacheKey);
+      await redisClient.del(devSummaryCacheKey);
+      await redisClient.del(projectsCacheKey);
+    }
+
+    // Try to get commits from Redis
+    let commits = forceRefresh ? null : await getCache(commitsCacheKey);
 
     if (!commits) {
-      console.log("⚡ Cache miss → syncing from GitHub...");
+      console.log("⚡ Syncing latest commits from GitHub...");
 
       const freshCommits = await AllCommits(githubUsername);
 
@@ -63,7 +72,7 @@ const getProfilePage = async (req, res) => {
         console.log("⚠️ No new commits found from GitHub");
       }
 
-      commits = await getLatestCommitsFromDB(githubUsername, 10);
+      commits = await getLatestCommitsFromDB(githubUsername, 15);
       console.log("📦 Serving commits from DB");
 
       if (commits && commits.length > 0) {
@@ -74,9 +83,19 @@ const getProfilePage = async (req, res) => {
     }
 
     // ================= 🧠 AI INSIGHTS & SUMMARIES =================
-    let summary = (await getCache(summaryCacheKey)) || (await getSummary(githubUsername));
-    let devSummary = (await getCache(devSummaryCacheKey)) || (await getDevSummary(githubUsername));
-    let projects = (await getCache(projectsCacheKey)) || (await getProjects(githubUsername));
+    let summary = forceRefresh ? null : ((await getCache(summaryCacheKey)) || (await getSummary(githubUsername)));
+    let devSummary = forceRefresh ? null : ((await getCache(devSummaryCacheKey)) || (await getDevSummary(githubUsername)));
+    let projects = forceRefresh ? null : ((await getCache(projectsCacheKey)) || (await getProjects(githubUsername)));
+
+    // 🧹 Clean up any previous AI complaint/refusal text stored in DB
+    if (devSummary && (devSummary.includes("Please provide") || devSummary.includes("gives me nothing") || devSummary.includes("Just saying") || devSummary.includes("I will deliver a concise"))) {
+      console.log("🧹 Detected old AI refusal in devSummary. Regenerating fresh developer persona...");
+      devSummary = null;
+    }
+    if (summary && (summary.includes("Please provide") || summary.includes("gives me nothing") || summary.includes("Just saying") || summary.includes("I will deliver a concise"))) {
+      console.log("🧹 Detected old AI refusal in summary. Regenerating fresh summary...");
+      summary = null;
+    }
 
     if (commits && commits.length > 0) {
       const aiTasks = [];
