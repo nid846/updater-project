@@ -75,19 +75,33 @@ const getRepoName = async (username) => {
 }
 
 const AllCommits = async (username) => {
+  console.log(`📡 Fetching repositories for GitHub user: ${username}`);
   const repoNames = (await getRepoName(username)) || [];
+  console.log(`📦 Found ${repoNames.length} repositories:`, repoNames);
+  
   let allCommits = [];
   for (const repo of repoNames) {
     const commit = await getCommits(username, repo);
     allCommits.push(...commit); // flatten array
   }
+  
   const today = new Date();
   const weekAgo = new Date();
   weekAgo.setDate(today.getDate() - 7);
 
   const last7DaysCommits = allCommits.filter(c => new Date(c.date) >= weekAgo);
   last7DaysCommits.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return last7DaysCommits;
+
+  if (last7DaysCommits.length > 0) {
+    console.log(`✨ Found ${last7DaysCommits.length} commits in the last 7 days.`);
+    return last7DaysCommits;
+  }
+
+  // Fallback: If no commits in the last 7 days, use the most recent commits so the profile is populated
+  allCommits.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const fallbackCommits = allCommits.slice(0, 20);
+  console.log(`ℹ️ No commits in last 7 days. Using ${fallbackCommits.length} recent commits as fallback.`);
+  return fallbackCommits;
 }
 
 async function saveToDb(commits, githubUsername) {
