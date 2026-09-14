@@ -1,53 +1,58 @@
-require('dotenv').config()
-// app.set('view engine','ejs')
+require('dotenv').config();
+
+const express = require('express');
+const app = express();
+
+// Enable trust proxy for cloud deployment (Render, Railway, Heroku, etc.)
+app.set('trust proxy', 1);
+
+// Configure view engine
+app.set('view engine', 'ejs');
+app.set('views', './views');
 
 const session = require("express-session");
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'fallback_session_secret_updater',
+    resave: false, // dont save if nothing changed in session
+    saveUninitialized: false, // dont create or save until user logs in
+    cookie: {
+      secure: process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE === 'true' ? true : false,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  })
+);
 
-const express = require('express')
-const app = express()
+// Health check endpoint for deployment platforms & uptime monitors
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
 
 const { startCommitCron } = require("./cron/commitCron");
 startCommitCron();
 
-// app.use('/webhook', express.raw({ type: 'application/json' }));
-// app.use(express.json())
-// 1. Apply RAW body ONLY to webhook
 app.use(
   "/github/webhook",
-  require("express").raw({ type: "*/*" }) 
+  express.raw({ type: "*/*" })
 );
 
-// 2. Apply JSON to everything else
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+const { connectRedis } = require("./utils/redisClient");
+connectRedis().catch((err) => {
+  console.error("Redis connection failed:", err.message);
+});
 
-app.use(
-  session({
-    secret: "supersecretkey",
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+app.use(express.json()); // -> converts everything below it to json format
+app.use(express.urlencoded({ extended: true })); // forms
+app.use(express.static('public')); // -> load the static frontend files
 
-const {connectRedis}=require('./utils/redisClient')
+const portfolioRoutes = require('./routes/projRoutes');
+const errorHandler = require('./utils/errorHandler');
+app.use('/', portfolioRoutes);
+app.use(errorHandler);
 
-const portfolioRoutes = require('./routes/projRoutes')
-const errorHandler=require('./utils/errorHandler')
+const port = process.env.PORT || 3000;
 
-const port = process.env.port
-app.set('view engine', 'ejs');
-app.set('views', './views');
-
-app.use('/', portfolioRoutes)
-app.use(errorHandler)
-
-async function startServer(){
-    await connectRedis()
-    app.listen(port,()=>{
-        console.log(`server running on port ${port}`)
-    })
-}
-
-startServer()
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
 

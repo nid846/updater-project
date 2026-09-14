@@ -1,42 +1,42 @@
-const {getRepositories,getCommits,getRepoName,AllCommits,saveToDb,getLatestCommitsFromDB,saveSummary,getSummary,saveDevSummary, getDevSummary, saveProjects, getProjects}=require("../services/githubService")
-const {getCache,setCache}=require('../utils/redisClient')
+const { getRepositories, getCommits, getRepoName, AllCommits, saveToDb, getLatestCommitsFromDB, saveSummary, getSummary, saveDevSummary, getDevSummary, saveProjects, getProjects } = require("../services/githubService")
+const { getCache, setCache } = require('../utils/redisClient')
 const { redisClient } = require('../utils/redisClient')
-const { generateSummaryWithRetry, generateDeveloperSummary,generateTopProjects } = require("../services/aiService");const pool=require('../db')
+const { generateSummaryWithRetry, generateDeveloperSummary, generateTopProjects } = require("../services/aiService"); const pool = require('../db')
 
-const getGithubRepos=async(req, res, next)=>{
-    try{
-        const repos=await getRepositories(req.params.username)
-        res.json(repos)
-    }catch(error){
-        next(error)
-    }
+const getGithubRepos = async (req, res, next) => {
+  try {
+    const repos = await getRepositories(req.params.username)
+    res.json(repos)
+  } catch (error) {
+    next(error)
+  }
 }
 
-const getGithubCommits=async(req,res,next)=>{
-    try{
-        const commits= await getCommits(req.params.owner,req.params.repo)
-        res.json(commits)
-    }catch(error){
-        next(error)
-    }
+const getGithubCommits = async (req, res, next) => {
+  try {
+    const commits = await getCommits(req.params.owner, req.params.repo)
+    res.json(commits)
+  } catch (error) {
+    next(error)
+  }
 }
 
-const getAllRepoNames=async(req,res,next)=>{
-    try{
-        const names=await getRepoName(req.params.username)
-        res.json(names)
-    }catch(error){
-        console.log(error.message)
-    }
+const getAllRepoNames = async (req, res, next) => {
+  try {
+    const names = await getRepoName(req.params.username)
+    res.json(names)
+  } catch (error) {
+    console.log(error.message)
+  }
 }
 
-const getAllCommits=async(req,res,next)=>{
-    try{
-        const commits=await AllCommits(req.params.username)
-        res.json(commits)
-    }catch(error){
-        console.log(error.message)
-    }
+const getAllCommits = async (req, res, next) => {
+  try {
+    const commits = await AllCommits(req.params.username)
+    res.json(commits)
+  } catch (error) {
+    console.log(error.message)
+  }
 }
 
 const getProfilePage = async (req, res) => {
@@ -45,10 +45,10 @@ const getProfilePage = async (req, res) => {
     const commitsCacheKey = `commits:${githubUsername}`;
     const summaryCacheKey = `summary:${githubUsername}`;
 
-    const devSummaryCacheKey = `devSummary:${githubUsername}`; // 🔥 NEW
-    const projectsCacheKey = `projects:${githubUsername}`; // 🔥 NEW
+    const devSummaryCacheKey = `devSummary:${githubUsername}`;
+    const projectsCacheKey = `projects:${githubUsername}`;
 
-    // 1️⃣ Try to get commits from Redis
+    //Try to get commits from Redis
     let commits = await getCache(commitsCacheKey);
 
     if (!commits) {
@@ -83,7 +83,7 @@ const getProfilePage = async (req, res) => {
       if (summary) {
         console.log("📦 Serving summary from DB");
         await setCache(summaryCacheKey, summary);
-      } 
+      }
       else if (commits && commits.length > 0) {
         console.log("🧠 First-time summary generation");
 
@@ -96,7 +96,7 @@ const getProfilePage = async (req, res) => {
         } else {
           summary = "Summary not ready yet";
         }
-      } 
+      }
       else {
         summary = "Summary not ready yet";
       }
@@ -114,7 +114,7 @@ const getProfilePage = async (req, res) => {
       if (devSummary) {
         console.log("📦 Dev summary from DB");
         await setCache(devSummaryCacheKey, devSummary);
-      } 
+      }
       else if (commits && commits.length > 0) {
         console.log("🧠 Generating developer summary...");
 
@@ -142,7 +142,7 @@ const getProfilePage = async (req, res) => {
       if (projects && projects.length > 0) {
         console.log("📦 Projects from DB");
         await setCache(projectsCacheKey, projects);
-      } 
+      }
       else if (commits && commits.length > 0) {
         console.log("🚀 Generating top projects...");
 
@@ -160,9 +160,9 @@ const getProfilePage = async (req, res) => {
       }
     }
 
-    res.render("profile", { 
-      commits, 
-      summary, 
+    res.render("profile", {
+      commits,
+      summary,
       devSummary,   // 🔥 NEW
       projects,     // 🔥 NEW
       githubUsername // 🔥 Pass username for links
@@ -170,8 +170,8 @@ const getProfilePage = async (req, res) => {
 
   } catch (error) {
     console.log(error.message);
-    res.render("profile", { 
-      commits: [], 
+    res.render("profile", {
+      commits: [],
       summary: "Summary unavailable",
       devSummary: "Unavailable", // 🔥 NEW
       projects: [],              // 🔥 NEW
@@ -302,4 +302,4 @@ const handleGithubWebhook = async (req, res) => {
   }
 };
 
-module.exports={getGithubRepos,getGithubCommits,getAllRepoNames,getAllCommits,getProfilePage,handleGithubWebhook}
+module.exports = { getGithubRepos, getGithubCommits, getAllRepoNames, getAllCommits, getProfilePage, handleGithubWebhook }

@@ -7,7 +7,7 @@ const { generateSummaryWithRetry, generateDeveloperSummary, generateTopProjects 
 
 const startCommitCron = () => {
   // Runs once every day at midnight
-  cron.schedule("*/10 * * * *", async () => {
+  cron.schedule("0 0 * * *", async () => {
     console.log("⏰ Running commit cron for ALL users...");
     try {
       // ✅ Get all users
