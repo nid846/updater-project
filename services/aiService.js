@@ -18,12 +18,12 @@ async function generateSummary(commits) {
     const prompt = `
 You are an executive engineering talent evaluator analyzing a developer's code commits, projects, and tech tools.
 
-Provide a comprehensive, high-impact summary of what this developer has been building and the technical capabilities they demonstrate.
+Provide a concise, high-impact summary of what this developer has been building and the technical capabilities they demonstrate. Even if commit messages are short, synthesize the repository context into an impressive, professional developer overview.
 
 Rules:
-- Identify the core technical stack, libraries, tools, and architecture patterns evidenced across their work.
-- Summarize both recent velocity and broader technical domain (e.g., backend systems, web APIs, full-stack tools, integrations).
+- Identify the core technical domain (e.g., backend systems, web APIs, full-stack tools, integrations).
 - Keep it concise (under 50 words), professional, and impressive for technical recruiters/interviewers.
+- Do NOT refuse or ask for more information. Always provide a polished summary.
 
 Commit & Repository Activity:
 ${commitText}
@@ -38,7 +38,7 @@ ${commitText}
       chatCompletion?.choices?.[0]?.message?.content?.trim() ||
       "Summary unavailable";
 
-    console.log(summary);
+    console.log("AI Summary:", summary);
     return summary;
 
   } catch (err) {
@@ -57,7 +57,7 @@ async function generateSummaryWithRetry(commits) {
       return summary;
     }
 
-    console.log("Retrying AI...");
+    console.log("Retrying AI summary...");
     attempts++;
   }
 
@@ -73,8 +73,9 @@ You are analyzing a software engineer's profile and repositories for an intervie
 
 Based on the tools, technologies, and repository context shown in their commits:
 1. Synthesize their primary specialization (e.g., Full-Stack Engineer, Backend & Cloud Developer, Systems Architect).
-2. Explicitly highlight key tech stacks, frameworks, and tools used (e.g. Node.js, Express, Redis, PostgreSQL, Docker, APIs).
+2. Explicitly highlight key tech stacks, frameworks, and tools used.
 3. Frame it as a 1-2 sentence executive resume statement tailored to impress technical interviewers.
+4. Do NOT refuse or ask for more info. Always return a resume statement.
 
 Commits & Repositories:
 ${commitText}
@@ -85,7 +86,9 @@ ${commitText}
       messages: [{ role: "user", content: [{ type: "text", text: prompt }] }]
     });
 
-    return res?.choices?.[0]?.message?.content?.trim() || null;
+    const devSummary = res?.choices?.[0]?.message?.content?.trim() || null;
+    console.log("Dev Summary:", devSummary);
+    return devSummary;
 
   } catch (err) {
     console.error("Dev Summary Error:", err.message);

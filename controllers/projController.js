@@ -73,99 +73,78 @@ const getProfilePage = async (req, res) => {
       console.log("⚡ Serving commits from Redis");
     }
 
-    // ================= SUMMARY =================
+    // ================= 🧠 AI INSIGHTS & SUMMARIES =================
+    let summary = (await getCache(summaryCacheKey)) || (await getSummary(githubUsername));
+    let devSummary = (await getCache(devSummaryCacheKey)) || (await getDevSummary(githubUsername));
+    let projects = (await getCache(projectsCacheKey)) || (await getProjects(githubUsername));
 
-    let summary = await getCache(summaryCacheKey);
+    if (commits && commits.length > 0) {
+      const aiTasks = [];
 
-    if (!summary) {
-      summary = await getSummary(githubUsername);
-
-      if (summary) {
-        console.log("📦 Serving summary from DB");
-        await setCache(summaryCacheKey, summary);
+      if (!summary) {
+        aiTasks.push(
+          generateSummaryWithRetry(commits).then(async (gen) => {
+            if (gen && gen !== "Summary unavailable") {
+              await saveSummary(githubUsername, gen);
+              await setCache(summaryCacheKey, gen);
+              summary = gen;
+            } else {
+              summary = "Summary ready on next update";
+            }
+          }).catch((err) => {
+            console.error("Summary task error:", err.message);
+            summary = "Summary ready on next update";
+          })
+        );
       }
-      else if (commits && commits.length > 0) {
-        console.log("🧠 First-time summary generation");
 
-        const generated = await generateSummaryWithRetry(commits);
-
-        if (generated !== "Summary unavailable") {
-          await saveSummary(githubUsername, generated);
-          await setCache(summaryCacheKey, generated);
-          summary = generated;
-        } else {
-          summary = "Summary not ready yet";
-        }
+      if (!devSummary) {
+        aiTasks.push(
+          generateDeveloperSummary(commits).then(async (gen) => {
+            if (gen) {
+              await saveDevSummary(githubUsername, gen);
+              await setCache(devSummaryCacheKey, gen);
+              devSummary = gen;
+            } else {
+              devSummary = "Profile summary ready on next update";
+            }
+          }).catch((err) => {
+            console.error("Dev summary task error:", err.message);
+            devSummary = "Profile summary ready on next update";
+          })
+        );
       }
-      else {
-        summary = "Summary not ready yet";
+
+      if (!projects || projects.length === 0) {
+        aiTasks.push(
+          generateTopProjects(commits).then(async (gen) => {
+            if (gen && gen.length > 0) {
+              await saveProjects(githubUsername, gen);
+              await setCache(projectsCacheKey, gen);
+              projects = gen;
+            } else {
+              projects = [];
+            }
+          }).catch((err) => {
+            console.error("Top projects task error:", err.message);
+            projects = [];
+          })
+        );
       }
-    } else {
-      console.log("⚡ Serving summary from Redis");
-    }
 
-    // ================= 🔥 DEV SUMMARY =================
-
-    let devSummary = await getCache(devSummaryCacheKey);
-
-    if (!devSummary) {
-      devSummary = await getDevSummary(githubUsername);
-
-      if (devSummary) {
-        console.log("📦 Dev summary from DB");
-        await setCache(devSummaryCacheKey, devSummary);
-      }
-      else if (commits && commits.length > 0) {
-        console.log("🧠 Generating developer summary...");
-
-        const generated = await generateDeveloperSummary(commits);
-
-        if (generated) {
-          await saveDevSummary(githubUsername, generated);
-          await setCache(devSummaryCacheKey, generated);
-          devSummary = generated;
-        } else {
-          devSummary = "Profile summary not ready";
-        }
-      } else {
-        devSummary = "Profile summary not ready";
-      }
-    }
-
-    // ================= 🔥 TOP PROJECTS =================
-
-    let projects = await getCache(projectsCacheKey);
-
-    if (!projects) {
-      projects = await getProjects(githubUsername);
-
-      if (projects && projects.length > 0) {
-        console.log("📦 Projects from DB");
-        await setCache(projectsCacheKey, projects);
-      }
-      else if (commits && commits.length > 0) {
-        console.log("🚀 Generating top projects...");
-
-        const generated = await generateTopProjects(commits);
-
-        if (generated && generated.length > 0) {
-          await saveProjects(githubUsername, generated);
-          await setCache(projectsCacheKey, generated);
-          projects = generated;
-        } else {
-          projects = [];
-        }
-      } else {
-        projects = [];
+      if (aiTasks.length > 0) {
+        console.log(`🧠 Processing ${aiTasks.length} AI task(s) concurrently...`);
+        await Promise.allSettled(aiTasks);
+        console.log("✅ All AI tasks finished processing!");
       }
     }
 
     res.render("profile", {
-      commits,
-      summary,
-      devSummary,   // 🔥 NEW
-      projects,     // 🔥 NEW
-      githubUsername // 🔥 Pass username for links
+      commits: commits || [],
+      summary: summary || "Summary ready on next update",
+      devSummary: devSummary || "Developer persona ready on next update",
+      projects: projects || [],
+      githubUsername
     });
 
   } catch (error) {
