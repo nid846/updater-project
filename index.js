@@ -35,7 +35,7 @@ const { startCommitCron } = require("./cron/commitCron");
 startCommitCron();
 
 app.use(
-  "/github/webhook",
+  ["/github/webhook", "/webhook"],
   express.raw({ type: "*/*" })
 );
 

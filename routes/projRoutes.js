@@ -14,7 +14,9 @@ router.get('/:username/allCommits', getAllCommits)
 
 router.get('/profile/:username', requireAuth, getProfilePage);
 
-router.post('/github/webhook', handleGithubWebhook)
+router.post('/github/webhook', handleGithubWebhook);
+router.post('/webhook', handleGithubWebhook);
+router.get('/github/webhook', (req, res) => res.status(200).send("GitHub webhook endpoint is active (send POST requests from GitHub)."));
 
 // Root route
 router.get("/", (req, res) => {

@@ -222,6 +222,11 @@ const handleGithubWebhook = async (req, res) => {
   try {
     const event = req.headers["x-github-event"];
 
+    if (event === "ping") {
+      console.log("🏓 GitHub Webhook Ping received! Webhook is successfully connected.");
+      return res.status(200).send("Pong! Webhook connected successfully.");
+    }
+
     if (event === "push") {
       const payload = JSON.parse(req.body.toString());
 

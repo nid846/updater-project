@@ -2,7 +2,15 @@
 const { InferenceClient } = require("@huggingface/inference");
 require("dotenv").config();
 
-const client = new InferenceClient(process.env.HF_API_KEY);
+let hfKey = process.env.HF_API_KEY ? process.env.HF_API_KEY.trim() : "";
+if (hfKey.startsWith("HF_API_KEY=")) {
+  hfKey = hfKey.replace(/^HF_API_KEY=/, "").trim();
+}
+if ((hfKey.startsWith('"') && hfKey.endsWith('"')) || (hfKey.startsWith("'") && hfKey.endsWith("'"))) {
+  hfKey = hfKey.slice(1, -1).trim();
+}
+
+const client = new InferenceClient(hfKey);
 
 async function generateSummary(commits) {
   try {

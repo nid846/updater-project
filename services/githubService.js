@@ -6,8 +6,19 @@ const getGithubHeaders = () => {
   const headers = {
     "User-Agent": "GitHub-Updater-App"
   };
-  if (process.env.GITHUB_TOKEN && process.env.GITHUB_TOKEN.trim() !== "") {
-    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN.trim()}`;
+  let token = process.env.GITHUB_TOKEN ? process.env.GITHUB_TOKEN.trim() : "";
+  if (token.startsWith("GITHUB_TOKEN=")) {
+    token = token.replace(/^GITHUB_TOKEN=/, "").trim();
+  }
+  if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
+    token = token.slice(1, -1).trim();
+  }
+  if (token.startsWith("Bearer ")) {
+    token = token.replace(/^Bearer /, "").trim();
+  }
+
+  if (token !== "") {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
 };
