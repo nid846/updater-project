@@ -29,18 +29,31 @@ flowchart TD
 ```
 
 ### Data Flow
-1. **Ingestion**: Commit events are received either in real-time via GitHub Webhooks (`/github/webhook`) or on a scheduled daily schedule via `node-cron`.
-2. **Storage & Cache**: Commits, developer summaries, and projects are persisted in PostgreSQL. Hot data (commit lists and summaries) is cached in Redis with TTLs to minimize external API requests.
-3. **AI Summaries**: Commit logs are processed via Hugging Face Inference API (`google/gemma-3-27b-it`) to generate high-level technical overviews and project spotlights.
+1. **Ingestion**: Commit events are received either in real-time via GitHub Webhooks (`/github/webhook`) with HMAC SHA-256 verification or on a scheduled daily sync via `node-cron`.
+2. **Storage & Cache**: Commits, developer summaries, and projects are persisted in PostgreSQL. Hot data (commit lists, developer personas, and project insights) is cached in Redis with a 300s TTL to eliminate redundant LLM API calls and external GitHub requests.
+3. **AI Summaries & Extraction**: Raw commit telemetry is processed through Hugging Face Serverless Inference API (`google/gemma-3-27b-it`) across parallel tasks to generate high-level technical narratives, developer personas, and structured project discovery JSON.
 4. **Presentation**: Dynamic dashboards are rendered server-side using EJS and authenticated with session management.
 
 ---
 
+## Generative AI & AI-First System Architecture
+
+This project is built around an **AI-First architecture** that transforms unstructured developer telemetry (raw commit diffs, commit messages, and repo activity) into structured executive intelligence using **Google Gemma-3-27B-it**.
+
+### 1. Multi-Task GenAI Pipelines
+
+| Pipeline | Model | Prompt Strategy | Output Format |
+| :--- | :--- | :--- | :--- |
+| **Activity Synthesis** | `google/gemma-3-27b-it` | Role-prompting ("Executive Talent Evaluator"), strict length (<50 words), domain extraction | Polished executive briefing |
+| **Developer Persona** | `google/gemma-3-27b-it` | Zero-shot capability profiling, technical strength synthesis, conversational preamble suppression | 2-3 sentence capability statement |
+| **Project Discovery** | `google/gemma-3-27b-it` | Schema-constrained few-shot extraction from multi-repo groupings | Strict JSON `[{ name, description, tech, url }]` |
+---
+
 ## Live Deployment
 
-- **Live URL**: [https://updater-project.onrender.com](https://updater-project.onrender.com) 
+- **Live URL**: [https://updater-project.onrender.com](https://your-deployment-link.com) 
 
-### Deployment Stack
+## Deployment Stack
 | Component | Platform / Service |
 | :--- | :--- |
 | **Backend & Web Server** | Render (Node.js runtime) |
@@ -57,8 +70,8 @@ flowchart TD
 - **Database**: PostgreSQL (`pg`)
 - **Caching**: Redis
 - **Background Jobs**: `node-cron`
-- **AI Integration**: `@huggingface/inference`
-- **Authentication**: `express-session`, `bcrypt`
+- **AI Integration**: `@huggingface/inference` (`google/gemma-3-27b-it`)
+- **Authentication & Security**: `express-session`, `bcrypt`, HMAC SHA-256 Webhooks
 
 ---
 
